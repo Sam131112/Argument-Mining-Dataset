@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[260]:
+# In[ ]:
 
 
 from string import punctuation
@@ -9,9 +9,10 @@ from collections import defaultdict
 import pandas as pd
 import os
 import glob
+import re
 
 
-# In[265]:
+# In[ ]:
 
 
 class ArguememtText():
@@ -19,25 +20,47 @@ class ArguememtText():
         self.essay = seq1.replace('.',' .').split()
         self.annos = annos
         self.labels = ['O']*len(self.essay)
+        self.arguments = defaultdict(tuple)
+        self.edges = []
+        self.mistakes = 0
+        self.found = 0
     def get_id(self,args):
-        args = args.split()
+        args = args.replace('.',' .').split()
+        #args = args.split()
         for i in range(len(self.essay)):
-                if self.essay[i:i+len(args)] == args:
-                    self.labels[i:i+len(args)] = ['Arg_I']*len(args)
-                    self.labels[i] = 'Arg_B'
-                    print(self.essay[i:i+len(args)],args,self.labels)
+                target = self.essay[i:i+len(args)]
+                if len(target)>0 and (target[-1][-1] == "," or target[-1][-1] == ";"):
+                    #print(target)
+                    target[-1] = target[-1].replace(target[-1][-1],'')
+                if target == args:
+                    self.labels[i:i+len(args)] = ['I-ARG']*len(args)
+                    self.labels[i] = 'B-ARG'
+                    return (i,i+len(args))
+                    #print(self.essay[i:i+len(args)],args,self.labels)
+                
     
     def fill_labels(self):
         for anno in self.annos: 
+            anno = anno.rstrip('\n')
             anno = anno.split('\t')
             if 'T' in anno[0]:
-                start , end  = int(anno[1].split()[1]),int(anno[1].split()[2])
-                args = anno[2].strip('\n')
-                print(args)
-                self.get_id(args)
+                args = anno[-1]
+                #print(args)
+                outs = self.get_id(args)
+                if outs == None:
+                    self.mistakes=self.mistakes+1
+                else:
+                    self.found = self.found + 1
+                    start, end = self.get_id(args)
+                    self.arguments[anno[0]]=(start,end)
+            if 'R' in anno[0]:
+                #print(anno)
+                t1,t2  = re.findall(r"Arg\d+:(.\d+)",anno[1])
+                self.edges.append((t1,t2))
+        print(self.mistakes,self.found)
 
 
-# In[246]:
+# In[ ]:
 
 
 df = pd.read_csv("ArgumentAnnotatedEssays-2.0/train-test-split.csv",delimiter=";")
@@ -57,7 +80,7 @@ for i,k in df.iterrows():
         
 
 
-# In[276]:
+# In[ ]:
 
 
 #glob.glob("ArgumentAnnotatedEssays-2.0/train_set/*")
@@ -69,6 +92,7 @@ for i,k in df.iterrows():
 train_objects = []
 test_objects = []
 for i,k in df.iterrows():
+            print(k['ID'])
             f1 = open(f"ArgumentAnnotatedEssays-2.0/brat-project-final/{k['ID']}.txt",'r')
             f2 = open(f"ArgumentAnnotatedEssays-2.0/brat-project-final/{k['ID']}.ann",'r')
             txt = []
@@ -85,37 +109,31 @@ for i,k in df.iterrows():
                 test_objects.append(compare)
 
 
-# In[269]:
+# In[ ]:
 
 
-len(train_objects)
 
 
-# In[270]:
+
+# In[ ]:
 
 
-len(test_objects)
 
 
-# In[278]:
+
+# In[ ]:
 
 
-train_objects[0].essay[85:95]
+compare.arguments
 
 
-# In[277]:
+# In[ ]:
 
 
-train_objects[0].labels.index('Arg_B')
+compare.edges
 
 
-# In[275]:
-
-
-train_objects[0].annos
-
-
-# In[280]:
+# In[ ]:
 
 
 f = open('train.txt','w')
@@ -128,7 +146,7 @@ for obj in train_objects:
     f.write('\n')
 
 
-# In[281]:
+# In[ ]:
 
 
 f = open('test.txt','w')
@@ -141,25 +159,25 @@ for obj in test_objects:
     f.write('\n')
 
 
-# In[312]:
+# In[ ]:
 
 
 #train_objects[3].essay
 
 
-# In[288]:
+# In[ ]:
 
 
 import datasets
 
 
-# In[294]:
+# In[ ]:
 
 
 from datasets import load_dataset
 
 
-# In[310]:
+# In[ ]:
 
 
 data = load_dataset("Sam2021/Arguement_Mining_CL2017")
